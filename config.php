@@ -9,6 +9,11 @@ if($connection->connect_error){
 }
 $connection->set_charset("utf8mb4");
 
+$checkStatusColumn = $connection->query("SHOW COLUMNS FROM `users` LIKE 'status'");
+if ($checkStatusColumn->num_rows == 0) {
+    $connection->query("ALTER TABLE `users` ADD `status` VARCHAR(20) DEFAULT 'active'");
+}
+
 function bot($method, $datas = []){
     global $botToken;
     $url = "https://api.telegram.org/bot" . $botToken . "/" . $method;
@@ -171,6 +176,37 @@ if(isset($update->message)){
     $forward_from_id = $update->message->reply_to_message->forward_from->id;
     $reply_text = $update->message->reply_to_message->text;
 }
+if(isset($update->my_chat_member)){
+    $from_id = $update->my_chat_member->from->id;
+    $chat_type = $update->my_chat_member->chat->type;
+    $status = $update->my_chat_member->new_chat_member->status;
+    $first_name = htmlspecialchars($update->my_chat_member->from->first_name);
+    $username = $update->my_chat_member->from->username?? " ندارد ";
+
+    if($chat_type == "private"){
+        if($status == "kicked"){
+            $stmt = $connection->prepare("UPDATE `users` SET `status` = 'blocked' WHERE `userid` = ?");
+            $stmt->bind_param("i", $from_id);
+            $stmt->execute();
+            $stmt->close();
+
+            bot('sendMessage',[
+                'chat_id'=>$admin,
+                'text'=>"
+کاربر با آیدی <code>$from_id</code> ربات رو بلاک کرد.
+اسم: $first_name
+یوزرنیم: @$username
+",
+                'parse_mode'=>"HTML"
+            ]);
+        }elseif($status == "member"){
+            $stmt = $connection->prepare("UPDATE `users` SET `status` = 'active' WHERE `userid` = ?");
+            $stmt->bind_param("i", $from_id);
+            $stmt->execute();
+            $stmt->close();
+        }
+    }
+}
 if(isset($update->callback_query)){
     $callbackId = $update->callback_query->id;
     $data = $update->callback_query->data;
@@ -328,7 +364,7 @@ function getAdminKeys(){
     
     return json_encode(['inline_keyboard'=>[
         [['text'=>$buttonValues['bot_reports'],'callback_data'=>"botReports"],['text'=>$buttonValues['message_to_user'],'callback_data'=>"messageToSpeceficUser"]],
-        [['text'=>$buttonValues['user_reports'],'callback_data'=>"userReports"]],
+        [['text'=>$buttonValues['user_reports'],'callback_data'=>"userReports"],['text'=>"آمار کاربران مسدود",'callback_data'=>"blockedUsersReport"]],
         ($from_id == $admin?[['text'=>$buttonValues['admins_list'],'callback_data'=>"adminsList"]]:[]),
         [['text'=>$buttonValues['increase_wallet'],'callback_data'=>"increaseUserWallet"],['text'=>$buttonValues['decrease_wallet'],'callback_data'=>"decreaseUserWallet"]],
         [['text'=>$buttonValues['create_account'],'callback_data'=>"createMultipleAccounts"],

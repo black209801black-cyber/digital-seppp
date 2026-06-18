@@ -49,8 +49,8 @@ if(strstr($text, "/start ")){
             $first_name = !empty($first_name)?$first_name:" ";
             $username = !empty($username)?$username:" ";
             if($uinfo->num_rows == 0){
-                $sql = "INSERT INTO `users` (`userid`, `name`, `username`, `refcode`, `wallet`, `date`, `refered_by`)
-                                    VALUES (?,?,?, 0,0,?,?)";
+                $sql = "INSERT INTO `users` (`userid`, `name`, `username`, `refcode`, `wallet`, `date`, `refered_by`, `status`)
+                                    VALUES (?,?,?, 0,0,?,?, 'active')";
                 $stmt = $connection->prepare($sql);
                 $time = time();
                 $stmt->bind_param("issii", $from_id, $first_name, $username, $time, $inviter);
@@ -148,6 +148,14 @@ if(preg_match('/^sendMessageToUser(\d+)/',$userInfo['step'],$match) && ($from_id
 }
 if($data=='botReports' && ($from_id == $admin || $userInfo['isAdmin'] == true)){
     editText($message_id, "آمار ربات در این لحظه",getBotReportKeys());
+}
+if($data=='blockedUsersReport' && ($from_id == $admin || $userInfo['isAdmin'] == true)){
+    $stmt = $connection->prepare("SELECT COUNT(*) as count FROM `users` WHERE `status` = 'blocked'");
+    $stmt->execute();
+    $blockedCount = $stmt->get_result()->fetch_assoc()['count'];
+    $stmt->close();
+
+    editText($message_id, "تعداد کاربرانی که ربات را مسدود کرده‌اند:\n\n$blockedCount کاربر", getAdminKeys());
 }
 if($data=="adminsList" && $from_id == $admin){
     editText($message_id, "لیست ادمین ها",getAdminsKeys());
@@ -2213,7 +2221,7 @@ if($data == 'message2All' and ($from_id == $admin || $userInfo['isAdmin'] == tru
         $offset = $sendInfo['offset']??0;
         $type = $sendInfo['type'];
         
-        $stmt = $connection->prepare("SELECT * FROM `users`");
+        $stmt = $connection->prepare("SELECT * FROM `users` WHERE `status` = 'active'");
         $stmt->execute();
         $usersCount = $stmt->get_result()->num_rows;
         $stmt->close();
@@ -2291,7 +2299,7 @@ if($data=="forwardToAll" && ($from_id == $admin || $userInfo['isAdmin'] == true)
         $offset = $sendInfo['offset']??0;
         $type = $sendInfo['type'];
         
-        $stmt = $connection->prepare("SELECT * FROM `users`");
+        $stmt = $connection->prepare("SELECT * FROM `users` WHERE `status` = 'active'");
         $stmt->execute();
         $usersCount = $stmt->get_result()->num_rows;
         $stmt->close();

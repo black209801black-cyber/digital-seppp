@@ -50,7 +50,7 @@ if($list->num_rows > 0){
             ]);
     }
     
-    $stmt = $connection->prepare("SELECT * FROM `users`ORDER BY `id` LIMIT 50 OFFSET ?");
+    $stmt = $connection->prepare("SELECT * FROM `users` WHERE `status` = 'active' ORDER BY `id` LIMIT 50 OFFSET ?");
     $stmt->bind_param("i", $offset);
     $stmt->execute();
     $usersList = $stmt->get_result();
