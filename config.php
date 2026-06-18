@@ -206,6 +206,7 @@ if(isset($update->my_chat_member)){
             $stmt->close();
         }
     }
+    exit(); // Avoid continuing for simple my_chat_member updates
 }
 if(isset($update->callback_query)){
     $callbackId = $update->callback_query->id;
@@ -219,7 +220,7 @@ if(isset($update->callback_query)){
     $first_name = htmlspecialchars($update->callback_query->from->first_name);
     $markup = json_decode(json_encode($update->callback_query->message->reply_markup->inline_keyboard),true);
 }
-if($from_id < 0) exit();
+if(!isset($from_id) || $from_id < 0) exit();
 $stmt = $connection->prepare("SELECT * FROM `users` WHERE `userid`=?");
 $stmt->bind_param("i", $from_id);
 $stmt->execute();
