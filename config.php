@@ -164,20 +164,20 @@ function ip_in_range($ip, $range){
 $time = time();
 $update = json_decode(file_get_contents("php://input"));
 if(isset($update->message)){
-    $from_id = $update->message->from->id;
-    $text = $update->message->text;
-    $first_name = htmlspecialchars($update->message->from->first_name);
-    $caption = $update->message->caption;
-    $chat_id = $update->message->chat->id;
-    $last_name = htmlspecialchars($update->message->from->last_name);
+    $from_id = $update->message->from->id ?? null;
+    $text = $update->message->text ?? null;
+    $first_name = isset($update->message->from->first_name) ? htmlspecialchars($update->message->from->first_name) : "";
+    $caption = $update->message->caption ?? null;
+    $chat_id = $update->message->chat->id ?? null;
+    $last_name = isset($update->message->from->last_name) ? htmlspecialchars($update->message->from->last_name) : "";
     $username = $update->message->from->username?? " ندارد ";
-    $message_id = $update->message->message_id;
-    $forward_from_name = $update->message->reply_to_message->forward_sender_name;
-    $forward_from_id = $update->message->reply_to_message->forward_from->id;
-    $reply_text = $update->message->reply_to_message->text;
+    $message_id = $update->message->message_id ?? null;
+    $forward_from_name = $update->message->reply_to_message->forward_sender_name ?? null;
+    $forward_from_id = $update->message->reply_to_message->forward_from->id ?? null;
+    $reply_text = $update->message->reply_to_message->text ?? null;
 }
 if(isset($update->my_chat_member)){
-    $from_id = $update->my_chat_member->from->id;
+    $from_id = $update->my_chat_member->from->id ?? null;
     $chat_type = $update->my_chat_member->chat->type;
     $status = $update->my_chat_member->new_chat_member->status;
     $first_name = htmlspecialchars($update->my_chat_member->from->first_name);
@@ -209,16 +209,16 @@ if(isset($update->my_chat_member)){
     exit(); // Avoid continuing for simple my_chat_member updates
 }
 if(isset($update->callback_query)){
-    $callbackId = $update->callback_query->id;
-    $data = $update->callback_query->data;
-    $text = $update->callback_query->message->text;
-    $message_id = $update->callback_query->message->message_id;
-    $chat_id = $update->callback_query->message->chat->id;
-    $chat_type = $update->callback_query->message->chat->type;
-    $username = htmlspecialchars($update->callback_query->from->username)?? " ندارد ";
-    $from_id = $update->callback_query->from->id;
-    $first_name = htmlspecialchars($update->callback_query->from->first_name);
-    $markup = json_decode(json_encode($update->callback_query->message->reply_markup->inline_keyboard),true);
+    $callbackId = $update->callback_query->id ?? null;
+    $data = $update->callback_query->data ?? null;
+    $text = $update->callback_query->message->text ?? null;
+    $message_id = $update->callback_query->message->message_id ?? null;
+    $chat_id = $update->callback_query->message->chat->id ?? null;
+    $chat_type = $update->callback_query->message->chat->type ?? null;
+    $username = isset($update->callback_query->from->username) ? htmlspecialchars($update->callback_query->from->username) : " ندارد ";
+    $from_id = $update->callback_query->from->id ?? null;
+    $first_name = isset($update->callback_query->from->first_name) ? htmlspecialchars($update->callback_query->from->first_name) : "";
+    $markup = isset($update->callback_query->message->reply_markup->inline_keyboard) ? json_decode(json_encode($update->callback_query->message->reply_markup->inline_keyboard),true) : null;
 }
 if(!isset($from_id) || $from_id < 0) exit();
 $stmt = $connection->prepare("SELECT * FROM `users` WHERE `userid`=?");
