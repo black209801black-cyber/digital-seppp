@@ -243,28 +243,27 @@ else $botState = array();
 $stmt->close();
 
 $channelLock = $botState['lockChannel'];
-$joniedState= bot('getChatMember', ['chat_id' => $channelLock,'user_id' => $from_id])->result->status;
+$joniedState = bot('getChatMember', ['chat_id' => $channelLock,'user_id' => $from_id]);
+$joniedState = $joniedState->result->status ?? null;
 
-if ($update->message->document->file_id) {
+if (isset($update->message->document->file_id)) {
     $filetype = 'document';
     $fileid = $update->message->document->file_id;
-} elseif ($update->message->audio->file_id) {
+} elseif (isset($update->message->audio->file_id)) {
     $filetype = 'music';
     $fileid = $update->message->audio->file_id;
-} elseif ($update->message->photo[0]->file_id) {
+} elseif (isset($update->message->photo[0]->file_id)) {
     $filetype = 'photo';
-    $fileid = $update->message->photo->file_id;
+    $fileid = $update->message->photo->file_id ?? $update->message->photo[0]->file_id;
     if (isset($update->message->photo[2]->file_id)) {
         $fileid = $update->message->photo[2]->file_id;
-    } elseif ($fileid = $update->message->photo[1]->file_id) {
-        $fileid = $update->message->photo[1]->file_id;
-    } else {
+    } elseif (isset($update->message->photo[1]->file_id)) {
         $fileid = $update->message->photo[1]->file_id;
     }
-} elseif ($update->message->voice->file_id) {
+} elseif (isset($update->message->voice->file_id)) {
     $filetype = 'voice';
     $voiceid = $update->message->voice->file_id;
-} elseif ($update->message->video->file_id) {
+} elseif (isset($update->message->video->file_id)) {
     $filetype = 'video';
     $fileid = $update->message->video->file_id;
 }
