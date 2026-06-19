@@ -157,6 +157,28 @@ if($data=='blockedUsersReport' && ($from_id == $admin || $userInfo['isAdmin'] ==
 
     editText($message_id, "تعداد کاربرانی که ربات را مسدود کرده‌اند:\n\n$blockedCount کاربر", getAdminKeys());
 }
+if($data=='checkLegacyBlockedUsers' && ($from_id == $admin || $userInfo['isAdmin'] == true)){
+    $stmt = $connection->prepare("SELECT * FROM `send_list` WHERE `state` = 1");
+    $stmt->execute();
+    $info = $stmt->get_result();
+    $stmt->close();
+
+    if($info->num_rows > 0){
+        $sendInfo = $info->fetch_assoc();
+        $type = $sendInfo['type'];
+        if($type == "check_blocked"){
+            alert("❗️ عملیات بررسی مسدودی‌ها در حال حاضر در صف اجراست...");
+        } else {
+            alert("❗️ یک پیام/فروارد همگانی در صف است. لطفاً صبر کنید تا تمام شود.");
+        }
+    } else {
+        $stmt = $connection->prepare("INSERT INTO `send_list` (`type`, `state`, `offset`) VALUES ('check_blocked', 1, 0)");
+        $stmt->execute();
+        $stmt->close();
+
+        editText($message_id, "✅ عملیات بررسی مسدودی‌های گذشته در صف اجرا قرار گرفت. \nربات تک‌تک کاربران را چک می‌کند و پس از پایان به شما اطلاع می‌دهد.", getAdminKeys());
+    }
+}
 if($data=="adminsList" && $from_id == $admin){
     editText($message_id, "لیست ادمین ها",getAdminsKeys());
 }

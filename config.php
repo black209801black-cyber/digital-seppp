@@ -366,6 +366,7 @@ function getAdminKeys(){
     return json_encode(['inline_keyboard'=>[
         [['text'=>$buttonValues['bot_reports'],'callback_data'=>"botReports"],['text'=>$buttonValues['message_to_user'],'callback_data'=>"messageToSpeceficUser"]],
         [['text'=>$buttonValues['user_reports'],'callback_data'=>"userReports"],['text'=>"آمار کاربران مسدود",'callback_data'=>"blockedUsersReport"]],
+        [['text'=>"بررسی مسدودی‌های گذشته",'callback_data'=>"checkLegacyBlockedUsers"]],
         ($from_id == $admin?[['text'=>$buttonValues['admins_list'],'callback_data'=>"adminsList"]]:[]),
         [['text'=>$buttonValues['increase_wallet'],'callback_data'=>"increaseUserWallet"],['text'=>$buttonValues['decrease_wallet'],'callback_data'=>"decreaseUserWallet"]],
         [['text'=>$buttonValues['create_account'],'callback_data'=>"createMultipleAccounts"],
