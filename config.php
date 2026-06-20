@@ -9,6 +9,11 @@ if($connection->connect_error){
 }
 $connection->set_charset("utf8mb4");
 
+$checkStatusColumn = $connection->query("SHOW COLUMNS FROM `users` LIKE 'status'");
+if ($checkStatusColumn->num_rows == 0) {
+    $connection->query("ALTER TABLE `users` ADD `status` VARCHAR(20) DEFAULT 'active'");
+}
+
 function bot($method, $datas = []){
     global $botToken;
     $url = "https://api.telegram.org/bot" . $botToken . "/" . $method;
@@ -159,31 +164,63 @@ function ip_in_range($ip, $range){
 $time = time();
 $update = json_decode(file_get_contents("php://input"));
 if(isset($update->message)){
-    $from_id = $update->message->from->id;
-    $text = $update->message->text;
-    $first_name = htmlspecialchars($update->message->from->first_name);
-    $caption = $update->message->caption;
-    $chat_id = $update->message->chat->id;
-    $last_name = htmlspecialchars($update->message->from->last_name);
+    $from_id = $update->message->from->id ?? null;
+    $text = $update->message->text ?? null;
+    $first_name = isset($update->message->from->first_name) ? htmlspecialchars($update->message->from->first_name) : "";
+    $caption = $update->message->caption ?? null;
+    $chat_id = $update->message->chat->id ?? null;
+    $last_name = isset($update->message->from->last_name) ? htmlspecialchars($update->message->from->last_name) : "";
     $username = $update->message->from->username?? " ندارد ";
-    $message_id = $update->message->message_id;
-    $forward_from_name = $update->message->reply_to_message->forward_sender_name;
-    $forward_from_id = $update->message->reply_to_message->forward_from->id;
-    $reply_text = $update->message->reply_to_message->text;
+    $message_id = $update->message->message_id ?? null;
+    $forward_from_name = $update->message->reply_to_message->forward_sender_name ?? null;
+    $forward_from_id = $update->message->reply_to_message->forward_from->id ?? null;
+    $reply_text = $update->message->reply_to_message->text ?? null;
+}
+if(isset($update->my_chat_member)){
+    $from_id = $update->my_chat_member->from->id ?? null;
+    $chat_type = $update->my_chat_member->chat->type;
+    $status = $update->my_chat_member->new_chat_member->status;
+    $first_name = htmlspecialchars($update->my_chat_member->from->first_name);
+    $username = $update->my_chat_member->from->username?? " ندارد ";
+
+    if($chat_type == "private"){
+        if($status == "kicked"){
+            $stmt = $connection->prepare("UPDATE `users` SET `status` = 'blocked' WHERE `userid` = ?");
+            $stmt->bind_param("i", $from_id);
+            $stmt->execute();
+            $stmt->close();
+
+            bot('sendMessage',[
+                'chat_id'=>$admin,
+                'text'=>"
+کاربر با آیدی <code>$from_id</code> ربات رو بلاک کرد.
+اسم: $first_name
+یوزرنیم: @$username
+",
+                'parse_mode'=>"HTML"
+            ]);
+        }elseif($status == "member"){
+            $stmt = $connection->prepare("UPDATE `users` SET `status` = 'active' WHERE `userid` = ?");
+            $stmt->bind_param("i", $from_id);
+            $stmt->execute();
+            $stmt->close();
+        }
+    }
+    exit(); // Avoid continuing for simple my_chat_member updates
 }
 if(isset($update->callback_query)){
-    $callbackId = $update->callback_query->id;
-    $data = $update->callback_query->data;
-    $text = $update->callback_query->message->text;
-    $message_id = $update->callback_query->message->message_id;
-    $chat_id = $update->callback_query->message->chat->id;
-    $chat_type = $update->callback_query->message->chat->type;
-    $username = htmlspecialchars($update->callback_query->from->username)?? " ندارد ";
-    $from_id = $update->callback_query->from->id;
-    $first_name = htmlspecialchars($update->callback_query->from->first_name);
-    $markup = json_decode(json_encode($update->callback_query->message->reply_markup->inline_keyboard),true);
+    $callbackId = $update->callback_query->id ?? null;
+    $data = $update->callback_query->data ?? null;
+    $text = $update->callback_query->message->text ?? null;
+    $message_id = $update->callback_query->message->message_id ?? null;
+    $chat_id = $update->callback_query->message->chat->id ?? null;
+    $chat_type = $update->callback_query->message->chat->type ?? null;
+    $username = isset($update->callback_query->from->username) ? htmlspecialchars($update->callback_query->from->username) : " ندارد ";
+    $from_id = $update->callback_query->from->id ?? null;
+    $first_name = isset($update->callback_query->from->first_name) ? htmlspecialchars($update->callback_query->from->first_name) : "";
+    $markup = isset($update->callback_query->message->reply_markup->inline_keyboard) ? json_decode(json_encode($update->callback_query->message->reply_markup->inline_keyboard),true) : null;
 }
-if($from_id < 0) exit();
+if(!isset($from_id) || $from_id < 0) exit();
 $stmt = $connection->prepare("SELECT * FROM `users` WHERE `userid`=?");
 $stmt->bind_param("i", $from_id);
 $stmt->execute();
@@ -206,28 +243,27 @@ else $botState = array();
 $stmt->close();
 
 $channelLock = $botState['lockChannel'];
-$joniedState= bot('getChatMember', ['chat_id' => $channelLock,'user_id' => $from_id])->result->status;
+$joniedState = bot('getChatMember', ['chat_id' => $channelLock,'user_id' => $from_id]);
+$joniedState = $joniedState->result->status ?? null;
 
-if ($update->message->document->file_id) {
+if (isset($update->message->document->file_id)) {
     $filetype = 'document';
     $fileid = $update->message->document->file_id;
-} elseif ($update->message->audio->file_id) {
+} elseif (isset($update->message->audio->file_id)) {
     $filetype = 'music';
     $fileid = $update->message->audio->file_id;
-} elseif ($update->message->photo[0]->file_id) {
+} elseif (isset($update->message->photo[0]->file_id)) {
     $filetype = 'photo';
-    $fileid = $update->message->photo->file_id;
+    $fileid = $update->message->photo->file_id ?? $update->message->photo[0]->file_id;
     if (isset($update->message->photo[2]->file_id)) {
         $fileid = $update->message->photo[2]->file_id;
-    } elseif ($fileid = $update->message->photo[1]->file_id) {
-        $fileid = $update->message->photo[1]->file_id;
-    } else {
+    } elseif (isset($update->message->photo[1]->file_id)) {
         $fileid = $update->message->photo[1]->file_id;
     }
-} elseif ($update->message->voice->file_id) {
+} elseif (isset($update->message->voice->file_id)) {
     $filetype = 'voice';
     $voiceid = $update->message->voice->file_id;
-} elseif ($update->message->video->file_id) {
+} elseif (isset($update->message->video->file_id)) {
     $filetype = 'video';
     $fileid = $update->message->video->file_id;
 }
@@ -328,7 +364,8 @@ function getAdminKeys(){
     
     return json_encode(['inline_keyboard'=>[
         [['text'=>$buttonValues['bot_reports'],'callback_data'=>"botReports"],['text'=>$buttonValues['message_to_user'],'callback_data'=>"messageToSpeceficUser"]],
-        [['text'=>$buttonValues['user_reports'],'callback_data'=>"userReports"]],
+        [['text'=>$buttonValues['user_reports'],'callback_data'=>"userReports"],['text'=>"آمار کاربران مسدود",'callback_data'=>"blockedUsersReport"]],
+        [['text'=>"بررسی مسدودی‌های گذشته",'callback_data'=>"checkLegacyBlockedUsers"]],
         ($from_id == $admin?[['text'=>$buttonValues['admins_list'],'callback_data'=>"adminsList"]]:[]),
         [['text'=>$buttonValues['increase_wallet'],'callback_data'=>"increaseUserWallet"],['text'=>$buttonValues['decrease_wallet'],'callback_data'=>"decreaseUserWallet"]],
         [['text'=>$buttonValues['create_account'],'callback_data'=>"createMultipleAccounts"],

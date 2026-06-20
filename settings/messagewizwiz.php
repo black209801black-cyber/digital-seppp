@@ -42,6 +42,7 @@ if($list->num_rows > 0){
     
     if($offset == '0'){
         if($type == "forwardall") $msg = "عملیات هدایت همگانی شروع شد";
+        elseif($type == "check_blocked") $msg = "عملیات بررسی مسدودی‌های گذشته شروع شد";
         else $msg = "عملیات ارسال پیام همگانی شروع شد";
         
         bot('sendMessage',[
@@ -50,7 +51,11 @@ if($list->num_rows > 0){
             ]);
     }
     
-    $stmt = $connection->prepare("SELECT * FROM `users`ORDER BY `id` LIMIT 50 OFFSET ?");
+    if($type == "check_blocked"){
+        $stmt = $connection->prepare("SELECT * FROM `users` ORDER BY `id` LIMIT 50 OFFSET ?");
+    } else {
+        $stmt = $connection->prepare("SELECT * FROM `users` WHERE `status` = 'active' ORDER BY `id` LIMIT 50 OFFSET ?");
+    }
     $stmt->bind_param("i", $offset);
     $stmt->execute();
     $usersList = $stmt->get_result();
@@ -63,7 +68,20 @@ if($list->num_rows > 0){
             ]);
     if($usersList->num_rows > 0) {
         while($user = $usersList->fetch_assoc()){
-            if($type == 'text'){
+            if($type == 'check_blocked'){
+                $res = sendAction('typing', $user['userid']);
+                if(isset($res->error_code) && $res->error_code == 403){
+                    $updateStmt = $connection->prepare("UPDATE `users` SET `status` = 'blocked' WHERE `userid` = ?");
+                    $updateStmt->bind_param("i", $user['userid']);
+                    $updateStmt->execute();
+                    $updateStmt->close();
+                } elseif (isset($res->ok) && $res->ok) {
+                    $updateStmt = $connection->prepare("UPDATE `users` SET `status` = 'active' WHERE `userid` = ?");
+                    $updateStmt->bind_param("i", $user['userid']);
+                    $updateStmt->execute();
+                    $updateStmt->close();
+                }
+            }elseif($type == 'text'){
                 sendMessage($text,$keys,null,$user['userid']);
             }elseif($type == 'music'){
                 bot('sendAudio',[
@@ -119,12 +137,25 @@ if($list->num_rows > 0){
         $stmt->close();
     }else{
         if($type == "forwardall") $msg = "عملیات هدایت همگانی با موفقیت انجام شد";
+        elseif($type == "check_blocked") $msg = "عملیات بررسی مسدودی‌های گذشته به پایان رسید.";
         else $msg = "عملیات ارسال پیام همگانی با موفقیت انجام شد";
         
-        bot('sendMessage',[
-            'chat_id'=>$admin,
-            'text'=>$msg . "\nبه " . $offset . " نفر پیامتو فرستادم"
+        if($type == "check_blocked"){
+            $stmtCount = $connection->prepare("SELECT COUNT(*) as count FROM `users` WHERE `status` = 'blocked'");
+            $stmtCount->execute();
+            $blockedCount = $stmtCount->get_result()->fetch_assoc()['count'];
+            $stmtCount->close();
+
+            bot('sendMessage',[
+                'chat_id'=>$admin,
+                'text'=>$msg . "\n\nتعداد کل کاربرانی که ربات را بلاک کرده‌اند: $blockedCount نفر"
             ]);
+        }else{
+            bot('sendMessage',[
+                'chat_id'=>$admin,
+                'text'=>$msg . "\nبه " . $offset . " نفر پیامتو فرستادم"
+            ]);
+        }
             
         $stmt = $connection->prepare("DELETE FROM `send_list` WHERE `id` = ?");
         $stmt->bind_param('i', $sendId);
